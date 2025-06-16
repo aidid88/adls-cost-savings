@@ -1,12 +1,33 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+
+// Define minimal types needed for the data structures
+type RedundancyType = 'LRS' | 'ZRS' | 'GRS' | 'RA-GRS' | 'GZRS' | 'RA-GZRS';
+
+interface MonthlyDataPoint {
+  month: number;
+  year: number;
+  tier: string;
+  withLifecycle: number;
+  hotOnly: number;
+  savings: number;
+  cumulativeSavings: number;
+}
+
+interface YearlyDataPoint {
+  year: number;
+  withLifecycle: number;
+  hotOnly: number;
+  savings: number;
+  cumulativeSavings: number;
+}
 
 const ADLSCostSavingsViz = () => {
   const [dataSize, setDataSize] = useState(300); // TB
   const [coolTransitionYears, setCoolTransitionYears] = useState(0.5);
   const [coldTransitionYears, setColdTransitionYears] = useState(2);
   const [archiveTransitionYears, setArchiveTransitionYears] = useState(7);
-  const [redundancyType, setRedundancyType] = useState('LRS');
+  const [redundancyType, setRedundancyType] = useState<RedundancyType>('LRS');
   
   // ADLS Gen2 pricing (approximate USD per GB per month) - US West 2 region
   const basePricing = {
@@ -33,19 +54,11 @@ const ADLSCostSavingsViz = () => {
     cold: basePricing.cold * redundancyMultipliers[redundancyType],
     archive: basePricing.archive * redundancyMultipliers[redundancyType]
   };
-  
-  // Access costs (per GB)
-  const accessCosts = {
-    hot: 0,
-    cool: 0.01,
-    cold: 0.02,
-    archive: 0.10
-  };
 
   const generateCostData = useMemo(() => {
     const years = 10;
     const dataGb = dataSize * 1024; // Convert TB to GB
-    const monthlyData = [];
+    const monthlyData: MonthlyDataPoint[] = [];
     
     for (let month = 0; month <= years * 12; month++) {
       const yearFloat = month / 12;
@@ -82,10 +95,10 @@ const ADLSCostSavingsViz = () => {
     }
     
     return monthlyData;
-  }, [dataSize, coldTransitionYears, archiveTransitionYears]);
+  }, [dataSize, coolTransitionYears, coldTransitionYears, archiveTransitionYears, pricing]);
 
   const yearlyData = useMemo(() => {
-    const yearly = [];
+    const yearly: YearlyDataPoint[] = [];
     for (let year = 1; year <= 10; year++) {
       const monthIndex = year * 12 - 1;
       if (monthIndex < generateCostData.length) {
@@ -146,7 +159,7 @@ const ADLSCostSavingsViz = () => {
             </label>
             <select
               value={redundancyType}
-              onChange={(e) => setRedundancyType(e.target.value)}
+              onChange={(e) => setRedundancyType(e.target.value as RedundancyType)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="LRS">LRS (Locally Redundant)</option>
@@ -281,7 +294,7 @@ const ADLSCostSavingsViz = () => {
                 fill="#8884d8"
                 dataKey="value"
               >
-                {tierDistribution.filter(tier => tier.value > 0).map((entry, index) => (
+                {tierDistribution.filter(tier => tier.value > 0).map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
